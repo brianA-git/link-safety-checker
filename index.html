@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Link Safety Checker</title>
+
+  <!-- =============================================
+    FONTS
+    "Syne" for headings — bold and trustworthy.
+    "DM Mono" for URLs — monospace reads technical.
+    "DM Sans" for everything else.
+  ============================================= -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- =============================================
+    QR CODE READER LIBRARY
+    jsQR reads QR codes from an uploaded image.
+    Pure client-side decoding — no image ever
+    leaves your browser.
+  ============================================= -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+
+  <div class="app">
+
+    <!-- ── HEADER ─────────────────────────────── -->
+    <header class="top-header">
+      <div class="header-inner">
+        <div class="brand">
+          <span class="brand-icon">🛡️</span>
+          <span class="brand-name">Link Safety Checker</span>
+        </div>
+      </div>
+      <p class="header-sub">Check a short link or QR code before you click it.</p>
+    </header>
+
+    <main class="main">
+
+      <!-- ── INPUT MODE TABS ─────────────────── -->
+      <div class="mode-tabs">
+        <button class="mode-tab active" data-mode="url">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <path d="M5.5 8.5a2.5 2.5 0 003.5 0l2-2a2.5 2.5 0 00-3.5-3.5l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            <path d="M8.5 5.5a2.5 2.5 0 00-3.5 0l-2 2a2.5 2.5 0 003.5 3.5l1-1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          Paste Link
+        </button>
+        <button class="mode-tab" data-mode="qr">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <rect x="1" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+            <rect x="8" y="1" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+            <rect x="1" y="8" width="5" height="5" rx="1" stroke="currentColor" stroke-width="1.3"/>
+            <rect x="9.5" y="9.5" width="2" height="2" fill="currentColor"/>
+          </svg>
+          Scan QR Image
+        </button>
+      </div>
+
+      <!-- ── URL INPUT PANEL ─────────────────── -->
+      <div class="input-panel active" id="panel-url">
+        <div class="search-wrap">
+          <svg class="search-icon" width="15" height="15" viewBox="0 0 15 15" fill="none">
+            <path d="M6 9a3 3 0 004-4l2-2a3 3 0 00-4-4l-1 1" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <input
+            type="text"
+            id="url-input"
+            class="search-input"
+            placeholder="Paste a URL or short link…  e.g. bit.ly/xyz123"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+        <button class="check-btn" id="check-url-btn">Check Link</button>
+      </div>
+
+      <!-- ── QR UPLOAD PANEL ──────────────────── -->
+      <div class="input-panel" id="panel-qr">
+        <label class="dropzone" id="dropzone" for="qr-file-input">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+            <path d="M14 19V7M14 7l-5 5M14 7l5 5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M4 19v3a2 2 0 002 2h16a2 2 0 002-2v-3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+          </svg>
+          <span class="dropzone-text">Click to upload, or drag a QR image here</span>
+          <span class="dropzone-hint">PNG, JPG — decoded entirely in your browser</span>
+        </label>
+        <input type="file" id="qr-file-input" accept="image/*" hidden/>
+        <div class="qr-preview-wrap hidden" id="qr-preview-wrap">
+          <img id="qr-preview-img" class="qr-preview-img" alt="Uploaded QR code"/>
+          <button class="remove-qr-btn" id="remove-qr-btn">Remove</button>
+        </div>
+      </div>
+
+      <!-- ── STATES ──────────────────────────── -->
+      <div class="state-msg hidden" id="state-loading">
+        <div class="spinner"></div>
+        <span id="loading-text">Checking link…</span>
+      </div>
+      <div class="state-msg hidden" id="state-error">
+        <span id="error-text">Something went wrong.</span>
+      </div>
+
+      <!-- ── RESULT CARD ──────────────────────── -->
+      <div class="result-card hidden" id="result-card">
+
+        <!-- Verdict banner — color changes based on risk level -->
+        <div class="verdict-banner" id="verdict-banner">
+          <div class="verdict-icon" id="verdict-icon"></div>
+          <div>
+            <p class="verdict-title" id="verdict-title">Checking…</p>
+            <p class="verdict-sub" id="verdict-sub"></p>
+          </div>
+        </div>
+
+        <!-- Destination URL -->
+        <div class="result-section">
+          <span class="result-label">Final Destination</span>
+          <div class="destination-box">
+            <span class="destination-url" id="destination-url"></span>
+            <button class="copy-dest-btn" id="copy-dest-btn" title="Copy URL">
+              <svg width="13" height="13" viewBox="0 0 13 13" fill="none">
+                <rect x="3.5" y="3.5" width="8" height="8" rx="1.5" stroke="currentColor" stroke-width="1.2"/>
+                <path d="M1.5 9V2a1 1 0 011-1H9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          <div class="redirect-chain hidden" id="redirect-chain"></div>
+        </div>
+
+        <!-- Signal checks -->
+        <div class="result-section">
+          <span class="result-label">Safety Signals</span>
+          <div class="signals-list" id="signals-list"></div>
+        </div>
+
+        <!-- Disclaimer -->
+        <p class="disclaimer">
+          These are automated signals, not a guarantee. When in doubt, don't enter personal info or download files from unfamiliar sites.
+        </p>
+
+        <button class="visit-btn" id="visit-btn" target="_blank">
+          Open destination in new tab ↗
+        </button>
+      </div>
+
+    </main>
+
+    <footer class="footer">
+      Safety data via <a href="https://safebrowsing.google.com" target="_blank" rel="noopener">Google Safe Browsing</a>
+    </footer>
+
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
